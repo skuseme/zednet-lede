@@ -1,0 +1,50 @@
+#!/usr/bin/python
+from SimpleWebSocketServer import SimpleSSLWebSocketServer, WebSocket
+import socket
+import struct
+
+dest_addr = socket.getaddrinfo("ff02::1%adhoc0", 4444)[0]
+print(dest_addr)
+
+send_sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+recv_sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+
+recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+recv_sock.bind(('', 4444))
+
+group_bin = socket.inet_pton(socket.AF_INET6, "ff02::1")
+mreq = group_bin + struct.pack('@I', 0)
+recv_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
+recv_sock.settimeout(0.1)
+
+clients = []
+
+class SimpleEcho(WebSocket):
+    def handleMessage(self):
+        print('Messaged received from', self.address, ', data:', self.data)
+        send_sock.sendto(self.data, dest_addr[4])
+        for client in clients:
+            if client != self:
+                 client.sendMessage(self.data)
+
+    def handleConnected(self):
+        print(self.address, 'connected')
+        clients.append(self)
+
+    def handleClose(self):
+        print(self.address, 'closed')
+        clients.remove(self)
+
+server = SimpleSSLWebSocketServer('', 9001, SimpleEcho, '/etc/certs/cert.pem', '/etc/certs/key.pem')
+while True:
+    server.serveonce()
+    try:
+        data, sender = recv_sock.recvfrom(1500)
+        while data[-1:] == '\0': data = data[:-1] # Strip trailing \0's
+        string_data = data.decode("utf-8")
+        print("From mesh:", string_data)
+        for client in clients:
+            client.sendMessage(string_data)
+    except socket.timeout:
+        pass
+

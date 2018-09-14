@@ -1,0 +1,21 @@
+config interface 'loopback'
+	option ifname 'lo'
+	option proto 'static'
+	option ipaddr '127.0.0.1'
+	option netmask '255.0.0.0'
+
+config interface 'lan'
+	option ifname 'eth0'
+	option proto 'dhcp'
+	option dns '8.8.8.8'
+
+config interface 'access'
+	option proto 'static'
+	option ipaddr '192.168.10.1'
+	option netmask '255.255.255.0'
+	option ifname 'ap0'
+
+config interface 'batnet'
+	option mtu '1532'
+	option proto 'batadv'
+	option mesh 'bat0'
